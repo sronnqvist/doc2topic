@@ -2,6 +2,7 @@
 
 import keras.backend as K
 import numpy as np
+import requests
 
 
 def precision(y_true, y_pred):
@@ -103,3 +104,22 @@ def topic_prec_recall(wordvecs, topic_words, counter, n_freq_words=100, stopidxs
 	recall = len(all_topic_words.intersection(top_words))/len(top_words)
 	prec = len(all_topic_words.intersection(top_words))/len(all_topic_words)
 	return prec, recall
+
+
+def topic_coherence(topic_words, idx2token):
+	coherences = []
+	print("Calling topic coherence API...\nTopic\tCoherence")
+	for topic in topic_words:
+		word_list = '%20'.join([idx2token[word] for _, word in topic_words[topic]][:10])
+		page = requests.get("http://palmetto.aksw.org/palmetto-webapp/service/cv?words=%s" % word_list)
+		if page.status_code != 200:
+			print("Error: Received HTTP code", page.getcode())
+			return None
+		if page:
+			coherences.append(float(page.text))
+			print("%d\t%.5f" % (topic, coherences[-1]))
+		else:
+			print("Error: Could not read page")
+			return None
+	print("Mean\t%.5f" % np.mean(coherences))
+	return np.mean(coherences)

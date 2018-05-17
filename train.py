@@ -1,4 +1,4 @@
-""" 
+"""
 Neural topic modeling - doc2topic
 Samuel Rönnqvist, TurkuNLP <saanro@utu.fi>
 """
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import random
 from measures import *
 import csv
-
+from os.path import isfile
 
 ### Parameters
 ns_rate = 2
@@ -139,7 +139,7 @@ wordvec_layerN = 3
 f1s = []
 log = {}
 for epoch in range(0, n_epochs):
-	hist = model.fit([input_docs, input_tokens], [outputs], batch_size=batch_size, verbose=1, epochs=epoch+1, initial_epoch=epoch)
+	hist = model.fit([input_docs, input_tokens], [outputs], batch_size=batch_size, verbose=1, epochs=epoch+1, initial_epoch=epoch, validation_split=0.05)
 	# Evaluate
 	print("Sparsity")
 	print("\tDoc-topic\t\tTopic-word")
@@ -194,16 +194,19 @@ log['_l1_doc'] = l1_doc
 log['_l1_word'] = l1_word
 log['_lr'] = lr
 
-with open("log.csv", 'a') as csvfile:
-	writer = csv.DictWriter(csvfile, sorted(log.keys()))
-	writer.writeheader()
-	writer.writerow(log)
-
-
 # Print topic words
 print("\nTopic words")
 for topic in topic_words:
 	print("%d:" % topic, ', '.join(["%s" % idx2token[word_id] for score, word_id in topic_words[topic]]))
+
+log['07_coherence'] = topic_coherence(topic_words, idx2token)
+
+file_exists = isfile("log.csv")
+with open("log.csv", 'a') as csvfile:
+	writer = csv.DictWriter(csvfile, sorted(log.keys()))
+	if not file_exists:
+		writer.writeheader()
+	writer.writerow(log)
 
 most_similar_words('payment')
 #most_similar_words('poliisi')
