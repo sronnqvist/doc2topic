@@ -110,16 +110,34 @@ def topic_coherence(topic_words, idx2token):
 	coherences = []
 	print("Calling topic coherence API...\nTopic\tCoherence")
 	for topic in topic_words:
-		word_list = '%20'.join([idx2token[word] for _, word in topic_words[topic]][:10])
+		word_list = '%20'.join([idx2token[word].replace('#','').replace('+','%2B') for _, word in topic_words[topic]][:10])
 		page = requests.get("http://palmetto.aksw.org/palmetto-webapp/service/cv?words=%s" % word_list)
 		if page.status_code != 200:
-			print("Error: Received HTTP code", page.getcode())
-			return None
+			print("Error: Received HTTP code", page.status_code)
+			continue
 		if page:
 			coherences.append(float(page.text))
 			print("%d\t%.5f" % (topic, coherences[-1]))
 		else:
 			print("Error: Could not read page")
-			return None
+			continue
 	print("Mean\t%.5f" % np.mean(coherences))
 	return np.mean(coherences)
+
+
+def topic_wordiness(topic_words, idx2token):
+	cnt, tot = 0, 0.
+	for topic in topic_words:
+		words = [idx2token[word].replace('#','').replace('-','') for _, word in topic_words[topic]][:10]
+		cnt += len([word for word in words if word.isalpha()])
+		tot += len(words)
+	return cnt/tot
+
+
+def topic_stopwordiness(topic_words, idx2token, stopwords):
+	cnt, tot = 0, 0.
+	for topic in topic_words:
+		words = [idx2token[word].replace('#','') for _, word in topic_words[topic]][:10]
+		cnt += len([word for word in words if word in stopwords])
+		tot += len(words)
+	return cnt/tot
