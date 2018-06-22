@@ -3,6 +3,7 @@
 import keras.backend as K
 import numpy as np
 import requests
+import collections, json
 
 
 def precision(y_true, y_pred):
@@ -65,16 +66,17 @@ def fmeasure(y_true, y_pred):
 L2 = (lambda x: np.linalg.norm(x, 2))
 L1 = (lambda x: np.linalg.norm(x, 1))
 L1normalize = (lambda x: x/L1(x))
+relufy = np.vectorize(lambda x: max(0., x))
 
 
-def sparsity(layer):
+def sparsity(layer, n=-1):
 	""" Distribution sparsity measured by L2norm/L1norm """
-	return np.mean([L2(x)/L1(x) for x in layer.get_weights()[0]])
+	return np.mean([L2(x)/L1(x) for x in relufy(layer.get_weights()[0][:n,])])
 
 
-def dims_above(layer, factor):
+def dims_above(layer, factor, n=-1):
 	""" Number of dimensions with values above the threshold factor/number_of_dimensions """
-	return np.mean([sum(dist/L1(dist) > factor/len(dist)) for dist in layer.get_weights()[0]])
+	return np.mean([sum(dist/L1(dist) > factor/len(dist)) for dist in layer.get_weights()[0][:n,]])
 
 
 def topic_overlap(wordvecs, topic_words):
@@ -93,11 +95,11 @@ def topic_overlap(wordvecs, topic_words):
 	return np.mean(overlaps)
 
 
-def topic_prec_recall(wordvecs, topic_words, counter, n_freq_words=100, stopidxs=set()):
+def topic_prec_recall(topic_words, idx2token, counter, n_freq_words=100, stopidxs=set()):
 	""" Measure fraction of n_freq_words covered by topic_words """
 	all_topic_words = set()
 	for topic in topic_words:
-		all_topic_words |= set([word for _, word in topic_words[topic]])
+		all_topic_words |= set([idx2token[idx] for _, idx in topic_words[topic]])
 	#eval_size = len(topic_words[0])*wordvecs.shape[1]
 	top_words = sorted([(cnt, word) for word, cnt in counter.items()])[-2*n_freq_words:]
 	top_words = set([word for _, word in top_words if word not in stopidxs][-1*n_freq_words:])
@@ -123,6 +125,56 @@ def topic_coherence(topic_words, idx2token):
 			continue
 	print("Mean\t%.5f" % np.mean(coherences))
 	return np.mean(coherences)
+
+
+def count_words(docs, save_to=None):
+	""" Count word occurrence and co-occurrence frequencies """
+	cntr = collections.defaultdict(lambda: 0)
+	cocntr = collections.defaultdict(lambda: collections.defaultdict(lambda: 0))
+	for tokens in docs:
+		for i, token1 in enumerate(tokens[:-1]):
+			for token2 in tokens[i+1:min(i+110,len(tokens))]:
+				t1, t2 = sorted([token1, token2])
+				cocntr[t1][t2] += 1
+			cntr[token1] += 1
+		try:
+			cntr[tokens[-1]] += 1
+		except IndexError:
+			pass
+
+	if save_to:
+		json.dump([cntr, cocntr], open(save_to, 'w'))
+	return cntr, cocntr
+
+
+def load_counts(filename):
+	cntr = collections.defaultdict(lambda: 0)
+	cocntr = collections.defaultdict(lambda: collections.defaultdict(lambda: 0))
+	cntr_dict, cocntr_dict = json.load(open(filename))
+	#for word in cocntr_dict:
+	#	cocntr[word].update(cocntr_dict[word])
+	#cntr.update(cntr_dict)
+	#return cntr, cocntr
+	return cntr_dict, cocntr_dict
+
+
+def pmix(word1, word2, counter, cocounter, blacklist=set()):
+	w1, w2 = sorted([word1, word2])
+	if not w1.replace('#','').replace('-','').isalpha() or not w1.replace('#','').replace('-','').isalpha():
+		return 0
+	if w1 in blacklist or w2 in blacklist:
+		return 0
+	try:
+		return max(0, np.log(cocounter[w1][w2]/((counter[word1]+counter[word2])/sum(counter.values()))))
+	except KeyError:
+		return np.nan
+
+
+def pmix_coherence(topic_top_words, counter, cocounter, blacklist=set()):
+	return np.nanmean([
+		np.nanmean([pmix(word1, word2, counter, cocounter, blacklist=blacklist) for word2 in topic_top_words if word1 != word2])
+		for word1 in topic_top_words
+	])
 
 
 def topic_wordiness(topic_words, idx2token):
