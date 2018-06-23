@@ -69,24 +69,24 @@ L1normalize = (lambda x: x/L1(x))
 relufy = np.vectorize(lambda x: max(0., x))
 
 
-def sparsity(layer, n=-1):
+def sparsity(vecs, n=-1):
 	""" Distribution sparsity measured by L2norm/L1norm """
-	return np.mean([L2(x)/L1(x) for x in relufy(layer.get_weights()[0][:n,])])
+	return np.mean([L2(x)/L1(x) for x in vecs[:n,]])
 
 
-def dims_above(layer, factor, n=-1):
+def dims_above(vecs, factor, n=-1):
 	""" Number of dimensions with values above the threshold factor/number_of_dimensions """
-	return np.mean([sum(dist/L1(dist) > factor/len(dist)) for dist in layer.get_weights()[0][:n,]])
+	return np.mean([sum(dist/L1(dist) > factor/len(dist)) for dist in vecs[:n,]])
 
 
-def topic_overlap(wordvecs, topic_words):
+def topic_overlap(topic_words):
 	""" Measure word overlap between top words for topics.
 		Maximum overlap between one topic and the rest is calculated and averaged over all topics. """
 	overlaps = []
-	for topic_i in range(wordvecs.shape[1]):
+	for topic_i in topic_words:
 		max_overlap = 0
 		topic_bow1 = set([word for _, word in topic_words[topic_i]])
-		for topic_j in range(wordvecs.shape[1]):
+		for topic_j in topic_words:
 			if topic_i == topic_j:
 				continue
 			topic_bow2 = set([word for _, word in topic_words[topic_j]])

@@ -41,22 +41,29 @@ def init_model(data_len, vocab_len, emb_dim, l1_doc, l1_word, lr, word_dim=None)
 	return model
 
 
-def get_docvecs(model):
+def get_docvecs(model, min_zero=True):
 	layer_lookup = dict([(x.name,i) for i,x in enumerate(model.layers)])
 	docvecs = model.layers[layer_lookup['docvecs']].get_weights()[0]
-	return relufy(docvecs)
+	if min_zero:
+		return relufy(docvecs)
+	else:
+		return docvecs # Faster without relufying
 
 
-def get_wordvecs(model):
+def get_wordvecs(model, min_zero=True):
 	layer_lookup = dict([(x.name,i) for i,x in enumerate(model.layers)])
 	try:
-		wordvecs = model.layers[layer_lookup['docvecs']].get_weights()[0]
-		return relufy(wordvecs)
+		wordvecs = model.layers[layer_lookup['wordvecs']].get_weights()[0]
+		if min_zero:
+			return relufy(wordvecs)
+		else:
+			return wordvecs # Faster without relufying
 	except KeyError:
-		_, n_topics = model.layers[layer_lookup['docvecs']].get_weights()[0].shape
+		raise
+		"""_, n_topics = model.layers[layer_lookup['docvecs']].get_weights()[0].shape
 		vocab_len, _ = model.layers[layer_lookup['wordemb']].get_weights()[0].shape
 		inlayerW = Input((1,))
 		embW = Embedding(len(vocab), 50, input_length=1, weights=model.layers[layer_lookup['wordemb']].get_weights())(inlayerW)
 		embWa = Dense(n_topics, activation='relu', weights=model.layers[layer_lookup['wordproj']].get_weights())(embW)
 		wordvec_model = Model(inputs=[inlayerW], outputs=[embWa])
-		return np.reshape(wordvec_model.predict(list(range(vocab_len))), (vocab_len, n_topics))
+		return np.reshape(wordvec_model.predict(list(range(vocab_len))), (vocab_len, n_topics))"""
