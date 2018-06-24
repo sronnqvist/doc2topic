@@ -74,9 +74,9 @@ def sparsity(vecs, n=-1):
 	return np.mean([L2(x)/L1(x) for x in vecs[:n,]])
 
 
-def dims_above(vecs, factor, n=-1):
-	""" Number of dimensions with values above the threshold factor/number_of_dimensions """
-	return np.mean([sum(dist/L1(dist) > factor/len(dist)) for dist in vecs[:n,]])
+def peak_rate(vecs, factor, n=-1):
+	""" Rate of dimensions with values above the threshold factor/number_of_dimensions """
+	return np.mean([sum(dist/L1(dist) > factor/len(dist)) for dist in vecs[:n,]])/vecs.shape[1]
 
 
 def topic_overlap(topic_words):
@@ -127,37 +127,6 @@ def topic_coherence(topic_words, idx2token):
 	return np.mean(coherences)
 
 
-def count_words(docs, save_to=None):
-	""" Count word occurrence and co-occurrence frequencies """
-	cntr = collections.defaultdict(lambda: 0)
-	cocntr = collections.defaultdict(lambda: collections.defaultdict(lambda: 0))
-	for tokens in docs:
-		for i, token1 in enumerate(tokens[:-1]):
-			for token2 in tokens[i+1:min(i+110,len(tokens))]:
-				t1, t2 = sorted([token1, token2])
-				cocntr[t1][t2] += 1
-			cntr[token1] += 1
-		try:
-			cntr[tokens[-1]] += 1
-		except IndexError:
-			pass
-
-	if save_to:
-		json.dump([cntr, cocntr], open(save_to, 'w'))
-	return cntr, cocntr
-
-
-def load_counts(filename):
-	cntr = collections.defaultdict(lambda: 0)
-	cocntr = collections.defaultdict(lambda: collections.defaultdict(lambda: 0))
-	cntr_dict, cocntr_dict = json.load(open(filename))
-	#for word in cocntr_dict:
-	#	cocntr[word].update(cocntr_dict[word])
-	#cntr.update(cntr_dict)
-	#return cntr, cocntr
-	return cntr_dict, cocntr_dict
-
-
 def pmix(word1, word2, counter, cocounter, blacklist=set()):
 	w1, w2 = sorted([word1, word2])
 	if not w1.replace('#','').replace('-','').isalpha() or not w1.replace('#','').replace('-','').isalpha():
@@ -193,3 +162,27 @@ def topic_stopwordiness(topic_words, idx2token, stopwords):
 		cnt += len([word for word in words if word in stopwords])
 		tot += len(words)
 	return cnt/tot
+
+
+def count_words(docs, save_to=None):
+	""" Count word occurrence and co-occurrence frequencies """
+	cntr = collections.defaultdict(lambda: 0)
+	cocntr = collections.defaultdict(lambda: collections.defaultdict(lambda: 0))
+	for tokens in docs:
+       for i, token1 in enumerate(tokens[:-1]):
+           for token2 in tokens[i+1:min(i+110,len(tokens))]:
+               t1, t2 = sorted([token1, token2])
+               cocntr[t1][t2] += 1
+           cntr[token1] += 1
+       try:
+           cntr[tokens[-1]] += 1
+       except IndexError:
+           pass
+
+	if save_to:
+		json.dump([cntr, cocntr], open(save_to, 'w'))
+	return cntr, cocntr
+
+
+def load_counts(filename):
+	return json.load(open(filename))
