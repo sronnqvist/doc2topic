@@ -3,7 +3,7 @@ from keras.layers import Input, Embedding, dot, Reshape, Activation, Dense
 from keras.regularizers import l1
 from keras.optimizers import Adam
 from sklearn.metrics.pairwise import cosine_similarity
-from measures import fmeasure
+from .measures import fmeasure
 
 from os.path import isfile
 import numpy as np
