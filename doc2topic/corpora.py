@@ -69,7 +69,7 @@ class DocData:
 		""" Count word co-occurrences for PMI coherence evaluation """
 		self.cocntr = collections.defaultdict(lambda: collections.defaultdict(lambda: 0))
 		print("Counting word co-occurrences...")
-		for tokens in docs:
+		for tokens in self.docs:
 			for i, token1 in enumerate(tokens[:-1]):
 				for token2 in tokens[i+1:min(i+110,len(tokens))]:
 					t1, t2 = sorted([token1, token2])
