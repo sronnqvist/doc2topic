@@ -132,6 +132,27 @@ class Doc2Topic:
 		return [(self.corpus.idx2token[i], s) for i, s in sims]
 
 
+	def get_document_topics(self, doc_id, as_vector=False):
+		""" Provide topic assignments for a document with (pseudo)probability scores """
+		assignments = L1normalize(self.get_docvecs()[doc_id,:])
+		if as_vector:
+			return assignments # Vector of length N_topics
+		else:
+			return sorted(
+					filter(lambda x:x[1]>0, enumerate(assignments)),
+					key=lambda x:-1*x[1]) # descending list of (doc_id, score)
+
+
+	def get_topic_documents(self, topic_id, top_n=10):
+		""" Provide most representative documents for a topic with (pseudo)probability assignment scores as in get_document_topics() """
+		L1norm = np.linalg.norm(self.get_docvecs(), 1, axis=1)
+		return sorted(
+				filter(lambda x:x[1]>0,
+					enumerate((self.docvecs.transpose()/L1norm)[topic_id,:])
+					),
+				key=lambda x:-1*x[1])[:top_n]
+
+
 class Logger:
 	def __init__(self, filename, model, evaluator):
 		self.filename = filename
