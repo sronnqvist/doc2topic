@@ -73,7 +73,7 @@ class DocData:
 			for i, token1 in enumerate(tokens[:-1]):
 				for token2 in tokens[i+1:min(i+110,len(tokens))]:
 					t1, t2 = sorted([token1, token2])
-					cocntr[t1][t2] += 1
+					self.cocntr[t1][t2] += 1
 
 		if save_to:
 			json.dump([self.cntr, self.cocntr], open(save_to, 'w'))
