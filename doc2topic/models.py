@@ -1,4 +1,4 @@
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.layers import Input, Embedding, dot, Reshape, Activation, Dense
 from keras.regularizers import l1
 from keras.optimizers import Adam
@@ -80,7 +80,15 @@ class Doc2Topic:
 
 	def save(self, filename):
 		json.dump(self.corpus.idx2token, open("%s.vocab" % filename,'w')) # Save token index mapping
+		json.dump(self.params, open("%s.params" % filename,'w')) # Save Hyperparameters
 		self.model.save(filename)
+
+
+	def load(self, filename):
+		self.corpus.idx2token = json.load(open("%s.vocab" % filename)) # Load token index mapping
+		self.corpus.token2idx = {t:i for i,t in self.corpus.idx2token.items()}
+		self.params = json.load(open("%s.params" % filename)) # Load Hyperparameters
+		self.model = load_model(filename)
 
 
 	def get_docvecs(self, min_zero=True):
