@@ -9,15 +9,8 @@ from os.path import isfile
 import numpy as np
 import json, csv
 import heapq
-
-
-# Config GPU memory usage
-import tensorflow as tf
-from keras.backend.tensorflow_backend import set_session, clear_session
-config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = -1
-config.gpu_options.allow_growth = True
-set_session(tf.Session(config=config))
+import collections
+import random
 
 
 L2 = (lambda x: np.linalg.norm(x, 2))
@@ -27,9 +20,20 @@ cosine = (lambda a,b: np.dot(a, b)/(L2(a)*L2(b)) if sum(a) != 0 and sum(b) != 0 
 relufy = np.vectorize(lambda x: max(0., x))
 
 
+def init_tf_memory():
+	# Config GPU memory usage
+	import tensorflow as tf
+	from keras.backend.tensorflow_backend import set_session, clear_session
+	config = tf.ConfigProto()
+	config.gpu_options.per_process_gpu_memory_fraction = -1
+	config.gpu_options.allow_growth = True
+	set_session(tf.Session(config=config))
+
+
 class Doc2Topic:
 	""" doc2topic model class """
-	def __init__(self, corpus, n_topics=20, batch_size=1024*6, n_epochs=5, lr=0.015, l1_doc=0.000002, l1_word=0.000000015, word_dim=None):
+	def __init__(self, corpus, n_topics=20, batch_size=1024*6, n_epochs=5, lr=0.015, l1_doc=0.000002, l1_word=0.000000015, word_dim=None, generator=None):
+		init_tf_memory()
 		self.corpus = corpus
 		self.params = {	'Ntopics':	n_topics,
 						'Ndocs':	self.corpus.n_docs,
@@ -41,6 +45,7 @@ class Doc2Topic:
 		self.topic_words = None
 		self.wordvecs = None
 		self.docvecs = None
+		self.generator = generator
 
 		inlayerD = Input((1,))
 		embD = Embedding(self.corpus.n_docs, n_topics, input_length=1, trainable=True, activity_regularizer=l1(l1_doc), name="docvecs")(inlayerD)
@@ -75,8 +80,10 @@ class Doc2Topic:
 	def train(self, n_epochs, callbacks=[]):
 		self.docvecs = None
 		self.wordvecs = None
-		self.history = self.model.fit([self.corpus.input_docs, self.corpus.input_tokens], [self.corpus.outputs], batch_size=self.params['BS'], verbose=1, epochs=n_epochs, callbacks=callbacks)
-
+		if self.generator is None:
+			self.history = self.model.fit([self.corpus.input_docs, self.corpus.input_tokens], [self.corpus.outputs], batch_size=self.params['BS'], verbose=1, epochs=n_epochs, callbacks=callbacks)
+		else:
+			self.history = self.model.fit_generator(self.generator, steps_per_epoch=self.corpus.n_words*(1+self.params['NS'])//self.params['BS'], initial_epoch=0, epochs=n_epochs, verbose=1, callbacks=callbacks)
 
 	def save(self, filename):
 		json.dump(self.corpus.idx2token, open("%s.vocab" % filename,'w')) # Save token index mapping
@@ -182,3 +189,46 @@ class Logger:
 			if not file_exists:
 				writer.writeheader()
 			writer.writerow(self.log)
+
+
+def data_feeder(corpus, n_passes=1, batch_size=1024*6):
+	""" Prepare training data and vocabulary mappings from documents on the fly """
+	input_docs, input_tokens, outputs = [], [], []
+	#for pass_ in range(n_passes):
+	pass_ = 0
+	while True:
+		print("\nStarting pass %d over data.\n" % (pass_+1))
+		pass_ += 1
+		random.shuffle(corpus.docs)
+		for doc_id, tokens in enumerate(corpus.docs):
+			#if doc_id % 100 == 0:
+			#	print("\rPreparing data: %d%%" % ((doc_id+1)/len(corpus.docs)*100+1), end='', flush=True)
+			# Filter tokens by frequency and map them to IDs (creates mapping table on the fly)
+			token_ids = [corpus.token2idx[token] for token in tokens if corpus.cntr[token] > corpus.min_count]
+			for i, idx in enumerate(token_ids):
+				input_docs.append(doc_id)
+				input_tokens.append(idx)
+				outputs.append(1)
+				input_docs.append(doc_id)
+				input_tokens.append(np.random.randint(0, corpus.vocab_size-1, 1))
+				outputs.append(0)
+				#if len(input_tokens) >= batch_size/(1+corpus.ns_rate) or (doc_id == len(corpus.docs)-1 and i == len(token_ids)-1):
+				if len(input_tokens) >= batch_size or (doc_id == len(corpus.docs)-1 and i == len(token_ids)-1):
+					# Online negative sampling
+					"""outputs += [0]*corpus.ns_rate*len(input_tokens)
+					input_docs += input_docs*corpus.ns_rate
+					input_tokens += list(np.random.randint(0, corpus.vocab_size-1, corpus.ns_rate*len(input_tokens)))"""
+					# Convert format
+					batch = np.concatenate([input_docs, input_tokens, outputs]).reshape(3,len(input_docs)).transpose()
+					#np.random.shuffle(batch)
+					batch = np.array(batch, dtype="int32")
+					"""input_docs = np.array(input_docs, dtype="int32")
+					input_tokens = np.array(input_tokens, dtype="int32")
+					outputs = np.array(outputs, dtype="int32")"""
+					# Shuffle batch
+					"""z = list(zip(*(input_docs, input_tokens, outputs)))
+					random.shuffle(z)
+					input_docs, input_tokens, outputs = map(list, zip(*z))"""
+					yield [batch[:,0], batch[:,1]], batch[:,2]
+					#yield [input_docs, input_tokens], outputs
+					input_docs, input_tokens, outputs = [], [], []
