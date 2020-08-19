@@ -2,7 +2,7 @@
 
 This is a neural take on LDA-style topic modeling, i.e., based on a set of documents, it provides a sparse topic distribution per document. A topic is described by a distribution over words. Documents and words are points in the same latent semantic space, whose dimensions are the topics.
 
-The implementation is based on a lightweight neural architecture and aims to be a scalable alternative to LDA. It readily makes use of GPU computation and has been tested successfully on 1M documents with 100 topics.
+The implementation is based on a lightweight neural architecture and aims to be a scalable alternative to LDA. It readily makes use of GPU computation and has been tested successfully on 1M documents with 200 topics (on a Titan Xp card with 12GB of memory).
 
 Getting started: `python -m tests.basic.py data/my_docs.txt`
  
